@@ -38,7 +38,7 @@ export default async ({dumpDirectory, logLevel, maxFileSize, stateInterfaceOptio
   logger.log('info', `Starting melinda-record-dump-exporter`);
 
   const {readState, getPool, close, writeState} = await createStateInterface(stateInterfaceOptions);
-  const {status} = await readState();
+  const {status, error} = await readState();
 
   const dbPool = getPool();
   const processRecords = processRecordsFactory({logger, maxFileSize, dbPool});
@@ -59,6 +59,11 @@ export default async ({dumpDirectory, logLevel, maxFileSize, stateInterfaceOptio
 
     logger.info('All records processed. Finalizing...');
     await finalizeProcessing();
+    return close();
+  }
+
+  if (status === statuses.harvestError) {
+    logger.log('error', `Cannot proceed. Last run resulted in an error: ${error}`);
     return close();
   }
 
