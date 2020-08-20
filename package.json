@@ -37,7 +37,7 @@
 		"@natlibfi/marc-record": "^6.0.2",
 		"@natlibfi/marc-record-serializers": "^7.0.0",
 		"@natlibfi/melinda-backend-commons": "^1.0.4",
-		"@natlibfi/melinda-record-harvest-commons": "^1.0.0-alpha.8",
+		"@natlibfi/melinda-record-harvest-commons": "^1.0.0-alpha.9",
 		"compressing": "^1.5.1",
 		"moment": "^2.27.0"
 	},
