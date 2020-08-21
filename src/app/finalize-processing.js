@@ -39,6 +39,7 @@ export default ({logger, dbPool, dumpDirectory, writeState}) => async () => {
 
   await clearOldFiles();
   await clearIncomplete();
+
   await exportPackages();
   await writeState({status: statuses.postProcessingDone});
 
@@ -54,7 +55,10 @@ export default ({logger, dbPool, dumpDirectory, writeState}) => async () => {
     logger.log('debug', 'No old packages to remove');
 
     function getOldPrefix() {
-      const prefixes = filenames.map(v => v.split('-'));
+      const prefixes = filenames
+        .map(v => v.split('-')[0])
+        .reduce((a, v) => a.includes(v) ? a : [...a, v], []);
+
       return prefixes.length > 1 ? prefixes.slice(-1)[0] : undefined;
     }
 
@@ -94,7 +98,7 @@ export default ({logger, dbPool, dumpDirectory, writeState}) => async () => {
 
       return filenames.filter(filename => {
         const [, identifier] = filename.match(/-(?<def>[0-9]+)\.zip$/u);
-        return identifiers.includes(identifier);
+        return identifiers.includes(Number(identifier));
       });
     }
 
@@ -140,7 +144,7 @@ export default ({logger, dbPool, dumpDirectory, writeState}) => async () => {
 
     async function getPrefix() {
       const filenames = await readdir(dumpDirectory);
-      return filenames.length === 0 ? moment().format('YYYYMMDDTHHMMSS') : filenames[0].split('-')[0];
+      return filenames.length === 0 ? moment().format('YYYYMMDDTHHmmss') : filenames[0].split('-')[0];
     }
   }
 };

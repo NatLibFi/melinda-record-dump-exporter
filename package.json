@@ -37,13 +37,13 @@
 		"@natlibfi/marc-record": "^6.0.3",
 		"@natlibfi/marc-record-serializers": "^7.0.1",
 		"@natlibfi/melinda-backend-commons": "^1.0.4",
-		"@natlibfi/melinda-record-harvest-commons": "^1.0.0-alpha.10",
+		"@natlibfi/melinda-record-harvest-commons": "^1.0.0-alpha.11",
 		"compressing": "^1.5.1",
 		"moment": "^2.27.0"
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.10.5",
-		"@babel/core": "^7.11.1",
+		"@babel/core": "^7.11.4",
 		"@babel/node": "^7.10.5",
 		"@babel/preset-env": "^7.11.0",
 		"@babel/register": "^7.10.5",

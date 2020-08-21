@@ -32,7 +32,7 @@ import createStateInterface, {statuses} from '@natlibfi/melinda-record-harvest-c
 import finalizeProcessingFactory from './finalize-processing';
 import processRecordsFactory from './process-records';
 
-export default async ({dumpDirectory, logLevel, maxFileSize, stateInterfaceOptions}) => {
+export default async ({dumpDirectory, logLevel, maxFileSize, packagingReportLimit, stateInterfaceOptions}) => {
   const logger = createLogger(logLevel);
 
   logger.log('info', `Starting melinda-record-dump-exporter`);
@@ -41,7 +41,7 @@ export default async ({dumpDirectory, logLevel, maxFileSize, stateInterfaceOptio
   const {status, error} = await readState();
 
   const dbPool = getPool();
-  const processRecords = processRecordsFactory({logger, maxFileSize, dbPool});
+  const processRecords = processRecordsFactory({logger, maxFileSize, dbPool, packagingReportLimit});
   const finalizeProcessing = finalizeProcessingFactory({logger, dumpDirectory, dbPool, writeState});
 
   await initializeDatabase();

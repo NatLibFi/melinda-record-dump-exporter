@@ -32,6 +32,8 @@ export const logLevel = readEnvironmentVariable('LOG_LEVEL', {defaultValue: 'inf
 export const dumpDirectory = readEnvironmentVariable('DUMP_DIRECTORY', {defaultValue: 'dump'});
 // 10 megabytes
 export const maxFileSize = readEnvironmentVariable('MAX_FILE_SIZE', {defaultValue: 10000000, format: v => Number(v)});
+// 5 megabytes
+export const packagingReportLimit = readEnvironmentVariable('PACKAGING_REPORT_LIMIT', {defaultValue: 5000000, format: v => Number(v)});
 
 export const stateInterfaceOptions = {
   db: {

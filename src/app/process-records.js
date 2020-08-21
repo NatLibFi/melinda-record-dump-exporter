@@ -31,101 +31,126 @@ import {zip} from 'compressing';
 import {MARCXML} from '@natlibfi/marc-record-serializers';
 import {MarcRecord} from '@natlibfi/marc-record';
 
-export default ({logger, dbPool, maxFileSize}) => {
+export default ({logger, dbPool, maxFileSize, packagingReportLimit}) => {
   return processRecords;
 
   async function processRecords(harvestDone = false) {
     const connection = await dbPool.getConnection();
-    await connection.beginTransaction();
+    const compressStream = new zip.Stream();
 
-    logger.log('info', 'Finding records to package...');
-    const identifiers = await packageRecords();
+    const addedIdentifiers = await addToPackage() || [];
 
-    if (identifiers) {
-      logger.log('info', identifiers.length === 0 ? 'No records to package' : `Created package with ${identifiers.length} records`);
+    if (addedIdentifiers.length > 0) {
+      await connection.beginTransaction();
 
+      await createPackage();
       await removeRecords();
 
       await connection.commit();
       await connection.end();
 
+      logger.log('info', `Created package with ${addedIdentifiers.length} records`);
       return processRecords();
     }
 
-    logger.log('info', 'Harvesting pending and not enough records yet available for a package.');
-
-    await connection.rollback();
+    logger.log('info', 'Not enough records for a package.');
     await connection.end();
 
-    async function packageRecords() {
-      const compressStream = new zip.Stream();
-      const identifiers = await addRecords();
+    async function addToPackage({cursor, identifiers = [], currentSize = 0} = {}) {
+      const records = await getRecords();
 
-      if (identifiers && identifiers.length > 0) {
-        await insertPackage();
-        return identifiers;
-      }
+      if (records.length > 0) {
+        const [{id: lastId}] = records.slice(-1);
+        const {newIdentifiers, newSize, isDone} = await iterate({records, currentSize, identifiers});
 
-      function insertPackage() {
-        return new Promise((resolve, reject) => {
-          const stream = compressStream.on('error', reject);
-          logger.log('debug', 'Inserting package into database');
-          resolve(connection.query('INSERT INTO packages (data) VALUE (?)', stream));
+        if (isDone) {
+          return identifiers.concat(newIdentifiers);
+        }
+
+        return addToPackage({
+          cursor: lastId,
+          identifiers: identifiers.concat(newIdentifiers),
+          currentSize: currentSize + newSize
         });
       }
 
-      function addRecords() {
-        return new Promise((resolve, reject) => {
-          const identifiers = [];
-          let size = 0; // eslint-disable-line functional/no-let
+      return harvestDone ? identifiers : undefined;
 
-          const emitter = connection.queryStream('SELECT * FROM records');
+      function getRecords() {
+        if (cursor) {
+          return connection.query('SELECT * FROM records WHERE id > ? ORDER BY id ASC LIMIT 1000', [cursor]);
+        }
 
-          emitter
-            .on('error', reject)
-            .on('end', () => {
-              if (harvestDone) {
-                resolve(identifiers);
-                return;
-              }
+        return connection.query('SELECT * FROM records ORDER BY id ASC LIMIT 1000');
+      }
 
-              resolve();
-            })
-            .on('data', async ({id, record}) => {
-              try {
-                const recordBuffer = await convertRecord(record);
+      async function iterate({currentSize, records = [], identifiers = [], lastReportedSize = 0}) {
+        const [record] = records;
 
-                if (size + recordBuffer.length > maxFileSize) {
-                // this message is repeated: destroy doesn't work?
-                  logger.log('debug', 'Maximum file size reached');
-                  emitter.destroy();
-                  resolve(identifiers);
-                  return;
-                }
+        if (record) {
+          const recordBuffer = await convertRecord();
 
-                const prefix = id.toString().padStart('0', 9);
+          if (recordBuffer.length + currentSize > maxFileSize) {
+            logger.log('debug', `Max filesize reached: ${recordBuffer.length + currentSize}`);
 
-                compressStream.addEntry(recordBuffer, {relativePath: `${prefix}.xml`});
-                identifiers.push(id); // eslint-disable-line functional/immutable-data
+            return {
+              newIdentifiers: identifiers.concat(record.id),
+              isDone: true
+            };
+          }
 
-                size += recordBuffer.length;
-              } catch (err) {
-                reject(new Error(`Converting record ${id} to MARCXML failed: ${err}`));
-              }
+          const prefix = record.id.toString().padStart('0', 9);
+          compressStream.addEntry(recordBuffer, {relativePath: `${prefix}.xml`});
 
-              async function convertRecord(record) {
-              // Disable validation because we just to want harvest everything and not comment on validity
-                const marcRecord = new MarcRecord(record, {fields: false, subfields: false, subfieldValues: false});
-                const str = await MARCXML.to(marcRecord, {indent: true});
-                return Buffer.from(str);
-              }
-            });
-        });
+          const newSize = currentSize + recordBuffer.length;
+          const newIdentifiers = identifiers.concat(record.id);
+
+          return iterate({
+            records: records.slice(1),
+            lastId: record.id,
+            currentSize: newSize,
+            identifiers: newIdentifiers,
+            lastReportedSize: reportSizeChange(newSize, newIdentifiers)
+          });
+        }
+
+        return {newIdentifiers: identifiers, newSize: currentSize};
+
+        function reportSizeChange(currentSize, identifiers) {
+          if (Math.abs(lastReportedSize - currentSize) > packagingReportLimit) {
+            logger.log('info', `Package size is now ${currentSize} bytes. Number of records is ${identifiers.length}`);
+            return currentSize;
+          }
+
+          return lastReportedSize;
+        }
+
+        async function convertRecord() {
+          try {
+            // Disable validation because we just to want harvest everything and not comment on validity
+            const marcRecord = new MarcRecord(record.record, {fields: false, subfields: false, subfieldValues: false});
+            const str = await MARCXML.to(marcRecord, {indent: true});
+            return Buffer.from(str);
+          } catch (err) {
+            throw new Error(`Converting record ${record.id} to MARCXML failed: ${err}`);
+          }
+        }
       }
     }
 
-    async function removeRecords() {
-      await connection.batch('DELETE FROM records WHERE id=?', identifiers.map(i => [i]));
+    async function removeRecords() { // eslint-disable-line no-unused-vars
+      await connection.batch('DELETE FROM records WHERE id=?', addedIdentifiers.map(i => [i]));
+    }
+
+    function createPackage() {
+      return new Promise((resolve, reject) => {
+        const stream = compressStream.on('error', ({stack}) => {
+          reject(new Error(`Compression error: ${stack}`));
+        });
+
+        logger.log('debug', 'Inserting package into database');
+        resolve(connection.query('INSERT INTO packages (data) VALUE (?)', stream));
+      });
     }
   }
 };
