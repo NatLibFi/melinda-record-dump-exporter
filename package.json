@@ -38,8 +38,8 @@
 		"@natlibfi/marc-record-serializers": "^7.0.1",
 		"@natlibfi/melinda-backend-commons": "^1.0.4",
 		"@natlibfi/melinda-record-harvest-commons": "^1.0.0-alpha.11",
-		"compressing": "^1.5.1",
-		"moment": "^2.27.0"
+		"moment": "^2.27.0",
+		"yazl": "^2.5.1"
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.10.5",

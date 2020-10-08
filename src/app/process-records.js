@@ -27,7 +27,7 @@
 *
 */
 
-import {zip} from 'compressing';
+import {ZipFile} from 'yazl';
 import {MARCXML} from '@natlibfi/marc-record-serializers';
 import {MarcRecord} from '@natlibfi/marc-record';
 
@@ -35,8 +35,23 @@ export default ({logger, dbPool, maxFileSize, packagingReportLimit}) => {
   return processRecords;
 
   async function processRecords(harvestDone = false) {
+    
     const connection = await dbPool.getConnection();
-    const compressStream = new zip.Stream();
+    const zipFile = new ZipFile();
+
+    try {
+      await connection.beginTransaction();
+
+      zipFile.outputStream.pipe();
+
+    } catch (err) {
+      await connection.rollback();
+    }
+    
+
+    await connection.beginTransaction();
+
+    zipFile.outputStream.pipe
 
     const addedIdentifiers = await addToPackage() || [];
 

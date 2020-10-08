@@ -30,15 +30,15 @@ import {readEnvironmentVariable} from '@natlibfi/melinda-backend-commons';
 
 export const logLevel = readEnvironmentVariable('LOG_LEVEL', {defaultValue: 'info'});
 export const dumpDirectory = readEnvironmentVariable('DUMP_DIRECTORY', {defaultValue: 'dump'});
-// 10 megabytes
-export const maxFileSize = readEnvironmentVariable('MAX_FILE_SIZE', {defaultValue: 10000000, format: v => Number(v)});
-// 5 megabytes
-export const packagingReportLimit = readEnvironmentVariable('PACKAGING_REPORT_LIMIT', {defaultValue: 5000000, format: v => Number(v)});
+// 100 000 files
+export const maxFilesPerPackage = readEnvironmentVariable('MAX_FILES_PER_PACKAGE', {defaultValue: 100000, format: v => Number(v)});
+// 100 files
+export const packagingReportLimit = readEnvironmentVariable('PACKAGING_REPORT_LIMIT', {defaultValue: 1000, format: v => Number(v)});
 
 export const stateInterfaceOptions = {
   db: {
     host: readEnvironmentVariable('DATABASE_HOST', {defaultValue: 'localhost'}),
-    port: readEnvironmentVariable('DATABASE_PORT', {defaultValue: 3306, format: v => Number(v)}),
+    port: readEnvironmentVariable('DATABASE_PORT', {defasultValue: 3306, format: v => Number(v)}),
     connectionLimit: readEnvironmentVariable('DATABASE_CONNECTION_LIMIT', {defaultValue: 5, format: v => Number(v)}),
     database: readEnvironmentVariable('DATABASE_NAME'),
     username: readEnvironmentVariable('DATABASE_USERNAME'),
